@@ -198,7 +198,7 @@ def analyze_shot(json_path):
     r = 0.25*(ws+hs)
 
     # release detection (same heuristic)
-    k = 1.46
+    k = 1.5
     N = 3
     def finite_second_diff(y):
         if len(y) < 3: return np.array([])
