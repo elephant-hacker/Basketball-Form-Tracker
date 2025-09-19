@@ -70,6 +70,8 @@ def load_models(ball_weights: str = "yolov8n.pt", pose_weights: str = "yolov8n-p
 # ----------------------------
 def process_video(video_path, ball_model, pose_model, show_progress=True):
     cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise ValueError(f"Could not open video: {video_path}")
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     W, H = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
@@ -314,6 +316,10 @@ with col2:
     pose_weights = f"{model_size}-pose.pt"
     st.write("Model files used:", ball_weights, "and", pose_weights)
     st.markdown("**Tip:** if this is slow, choose `yolov8n`.")
+
+# ✅ make sure models are loaded
+with st.spinner("Loading models (cached)..."):
+    ball_model, pose_model = load_models(ball_weights, pose_weights)
 
 with col1:
     video_file = st.file_uploader("Upload video (mp4/mov/avi)", type=["mp4","mov","avi"])
