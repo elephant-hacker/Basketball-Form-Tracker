@@ -27,6 +27,35 @@ def calculate_angle(a, b, c):
     return math.degrees(math.acos(cosine_angle))
 
 # ----------------------------
+# Coaching advice
+# ----------------------------
+def give_advice(report):
+    advice = []
+
+    # Launch angle
+    if "launch_angle" in report:
+        angle = report["launch_angle"]
+        if angle < 40:
+            advice.append(f"Your release angle was {angle:.1f}°. Try releasing higher (ideal is 45–55°).")
+        elif angle > 55:
+            advice.append(f"Your release angle was {angle:.1f}°. Try lowering it slightly to stay in the 45–55° range.")
+        else:
+            advice.append(f"Nice! Your release angle was {angle:.1f}°, which is in the ideal range (45–55°).")
+
+    # Arc height
+    if report.get("arc_height_px") is not None:
+        arc = report["arc_height_px"]
+        if arc < 50:
+            advice.append("The arc of your shot was quite flat. Try following through more to add height.")
+        elif arc > 150:
+            advice.append("Your shot had a very high arc. This can reduce consistency — try smoothing it out.")
+        else:
+            advice.append("Your arc height looked solid.")
+
+    # More metrics (future: elbow angle, wrist-ball separation, etc.)
+    return advice
+
+# ----------------------------
 # Load models once (cached)
 # ----------------------------
 @st.cache_resource
@@ -37,7 +66,7 @@ def load_models(ball_weights: str = "yolov8n.pt", pose_weights: str = "yolov8n-p
     return ball_model, pose_model
 
 # ----------------------------
-# Video processing (adapted from your script)
+# Video processing (your pipeline)
 # ----------------------------
 def process_video(video_path, ball_model, pose_model, show_progress=True):
     cap = cv2.VideoCapture(video_path)
@@ -61,7 +90,6 @@ def process_video(video_path, ball_model, pose_model, show_progress=True):
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 0
     progress = st.progress(0) if show_progress and total_frames else None
 
-    # loop frames
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
@@ -94,25 +122,22 @@ def process_video(video_path, ball_model, pose_model, show_progress=True):
                 cv2.circle(frame, (cx, cy), 6, (0, 255, 0), -1)
                 break
 
-        # draw trajectory
+        # Draw trajectory
         for i in range(1, len(trajectory)):
             cv2.line(frame, trajectory[i - 1], trajectory[i], (0, 0, 255), 2)
 
         # Pose detection
         pose_results = pose_model(frame)[0]
-
         nearest_wrist = None
         nearest_dist = None
 
-        # The exact access pattern depends on ultralytics version; this mirrors your working code.
         for person in getattr(pose_results, "keypoints", []):
-            # person.xy appears in your original; we try to reuse that
             try:
                 keypoints = person.xy[0].tolist()
             except Exception:
                 continue
 
-            # skeleton
+            # Skeleton
             for i, j in body_connections:
                 if i < len(keypoints) and j < len(keypoints):
                     xi, yi = int(keypoints[i][0]), int(keypoints[i][1])
@@ -120,7 +145,7 @@ def process_video(video_path, ball_model, pose_model, show_progress=True):
                     if xi > 0 and yi > 0 and xj > 0 and yj > 0:
                         cv2.line(frame, (xi, yi), (xj, yj), (0, 255, 255), 2)
 
-            # elbow angles
+            # Elbow angles
             def record_elbow(a_id, b_id, c_id, side):
                 if all(k < len(keypoints) for k in [a_id, b_id, c_id]):
                     a, b, c = keypoints[a_id], keypoints[b_id], keypoints[c_id]
@@ -135,7 +160,7 @@ def process_video(video_path, ball_model, pose_model, show_progress=True):
             record_elbow(6, 8, 10, "right")
             record_elbow(5, 7, 9, "left")
 
-            # nearest wrist to ball center
+            # Nearest wrist to ball
             if frame_rec["ball"] is not None:
                 cx, cy = frame_rec["ball"]["cx"], frame_rec["ball"]["cy"]
                 for wid in (9, 10):
@@ -157,14 +182,13 @@ def process_video(video_path, ball_model, pose_model, show_progress=True):
         analysis_data.append(frame_rec)
         out.write(frame)
 
-       #update progress bar
-    if progress:
+        if progress:
             progress.progress(frame_num / total_frames)
 
     cap.release()
     out.release()
 
-    # write JSON
+    # Write JSON
     out_json = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
     with open(out_json.name, "w") as f:
         json.dump({
@@ -177,7 +201,7 @@ def process_video(video_path, ball_model, pose_model, show_progress=True):
     return output_video_path, out_json.name, analysis_data
 
 # ----------------------------
-# Shot analysis (adapted)
+# Shot analysis
 # ----------------------------
 def analyze_shot(json_path):
     with open(json_path, "r") as f:
@@ -197,7 +221,7 @@ def analyze_shot(json_path):
     dists = np.array([fr.get("wrist_ball_dist", np.nan) for fr in ball_frames], dtype=float)
     r = 0.25*(ws+hs)
 
-    # release detection (same heuristic)
+    # release detection heuristic
     k = 1.7
     N = 3
     def finite_second_diff(y):
@@ -225,7 +249,6 @@ def analyze_shot(json_path):
                     break
 
     if release_idx is None:
-        # fallback
         acc = finite_second_diff(ys)
         if len(acc) >= 5:
             win = 5
@@ -257,9 +280,7 @@ def analyze_shot(json_path):
         yp = a * xp**2 + b * xp + c
         arc_height = float(ys_rel.max() - ys_rel.min())
 
-    # create plots (matplotlib figures)
     figs = []
-    # trajectory + fit
     fig1 = plt.figure(figsize=(6,4))
     plt.scatter(xs, ys, label="All detections", alpha=0.5)
     if xp is not None:
@@ -283,7 +304,7 @@ def analyze_shot(json_path):
 # ----------------------------
 # Streamlit UI
 # ----------------------------
-st.header("Basketball shot tracker — Upload your Shot")
+st.header("🏀 Basketball Shot Tracker — Upload your Shot")
 
 col1, col2 = st.columns([2,1])
 
@@ -294,15 +315,11 @@ with col2:
     st.write("Model files used:", ball_weights, "and", pose_weights)
     st.markdown("**Tip:** if this is slow, choose `yolov8n`.")
 
-# load models (cached)
-with st.spinner("Loading models (cached)..."):
-    ball_model, pose_model = load_models(ball_weights, pose_weights)
-
 with col1:
-    video_file = st.file_uploader("Upload video (mp4/mov/avi) — or drag & drop", type=["mp4","mov","avi"])
-    json_file = st.file_uploader("Or upload existing *_data.json to analyze", type=["json"])
+    video_file = st.file_uploader("Upload video (mp4/mov/avi)", type=["mp4","mov","avi"])
+    json_file = st.file_uploader("Or upload existing *_data.json", type=["json"])
 
-# if JSON uploaded, analyze directly
+# Analyze uploaded JSON directly
 if json_file is not None and video_file is None:
     tmp_json = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
     tmp_json.write(json_file.read())
@@ -313,11 +330,17 @@ if json_file is not None and video_file is None:
         st.error(res["error"])
     else:
         st.success("Analysis complete")
+        st.subheader("Shot Report")
         st.json(res["report"])
+
+        st.subheader("Coaching Advice")
+        for tip in give_advice(res["report"]):
+            st.write("- " + tip)
+
         for fig in res["figs"]:
             st.pyplot(fig)
 
-# if video uploaded, run full pipeline
+# Full pipeline if video uploaded
 if video_file is not None:
     tmp_video = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
     tmp_video.write(video_file.read())
@@ -325,23 +348,28 @@ if video_file is not None:
     st.write("Saved uploaded video to:", tmp_video.name)
 
     if st.button("Run tracking + analysis"):
-        with st.spinner("Running tracking (this can be slow — model inference on CPU may take a while)..."):
+        with st.spinner("Running tracking..."):
             tracked_path, json_path, analysis_data = process_video(tmp_video.name, ball_model, pose_model)
         st.success("Tracking finished")
         st.video(open(tracked_path, "rb").read())
 
-        # show JSON download
         with open(json_path, "rb") as f:
             json_bytes = f.read()
-        st.download_button("Download tracking JSON", data=json_bytes, file_name=os.path.basename(json_path), mime="application/json")
+        st.download_button("Download tracking JSON", data=json_bytes,
+                           file_name=os.path.basename(json_path), mime="application/json")
 
-        # analyze
         with st.spinner("Running arc analysis..."):
             res = analyze_shot(json_path)
         if "error" in res:
             st.error(res["error"])
         else:
+            st.subheader("Shot Report")
             st.json(res["report"])
+
+            st.subheader("Coaching Advice")
+            for tip in give_advice(res["report"]):
+                st.write("- " + tip)
+
             for fig in res["figs"]:
                 st.pyplot(fig)
 
