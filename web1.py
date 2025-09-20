@@ -12,6 +12,51 @@ from datetime import datetime
 
 st.set_page_config(layout="wide", page_title="Basketball Shot Tracker")
 
+# Inject custom CSS for styling
+st.markdown(
+    """
+    <style>
+    /* Background */
+    .stApp {
+        background-color: #121212;
+        color: #eaeaea;
+    }
+    /* Headers */
+    h1, h2, h3, h4 {
+        color: #ff6600;
+        text-align: center;
+        font-family: 'Arial Black', sans-serif;
+    }
+    /* Buttons */
+    div.stButton > button {
+        background-color: #ff6600;
+        color: white;
+        border-radius: 12px;
+        border: none;
+        padding: 0.5em 1.5em;
+        font-size: 1.1em;
+        font-weight: bold;
+        transition: background-color 0.3s ease;
+    }
+    div.stButton > button:hover {
+        background-color: #e65c00;
+        color: white;
+    }
+    /* Sidebar */
+    section[data-testid="stSidebar"] {
+        background-color: #1e1e1e;
+    }
+    /* JSON box */
+    .stMarkdown pre, .stJson {
+        background-color: #1e1e1e !important;
+        border-radius: 8px;
+        padding: 1em;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # ----------------------------
 # Helpers: geometry / angle
 # ----------------------------
