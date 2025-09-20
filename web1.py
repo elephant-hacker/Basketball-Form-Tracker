@@ -390,7 +390,7 @@ def analyze_shot(json_path):
 # ----------------------------
 # Streamlit UI
 # ----------------------------
-st.header("🏀 Basketball Shot Tracker — Upload your Shot")
+st.header("Upload your Shot")
 
 col1, col2 = st.columns([2,1])
 
