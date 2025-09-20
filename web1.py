@@ -88,7 +88,7 @@ st.markdown(
 st.markdown(
     """
     <div class="hero">
-        <h1>🏀 Basketball Shot Tracker</h1>
+        <h1>Basketball Shot Tracker</h1>
         <p>Upload your shot. Get pro-level feedback. Train smarter.</p>
     </div>
     """,
