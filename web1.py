@@ -420,3 +420,83 @@ def analyze_shot(json_path):
     }
 
     return {"report": report, "figs": figs}
+
+# ----------------------------
+# Streamlit UI
+# ----------------------------
+st.header("Upload your Shot")
+
+col1, col2 = st.columns([2,1])
+
+with col2:
+    model_size = st.selectbox("Model size (smaller = faster)", ["yolov8n", "yolov8s", "yolov8m", "yolov8x"], index=0)
+    ball_weights = f"{model_size}.pt" if not model_size.endswith("-pose") else model_size
+    pose_weights = f"{model_size}-pose.pt"
+    st.write("Model files used:", ball_weights, "and", pose_weights)
+    st.markdown("**Tip:** if this is slow, choose `yolov8n`.")
+
+# load models
+with st.spinner("Loading models (cached)..."):
+    ball_model, pose_model = load_models(ball_weights, pose_weights)
+
+with col1:
+    video_file = st.file_uploader("Upload video (mp4/mov/avi)", type=["mp4","mov","avi"])
+    json_file = st.file_uploader("Or upload existing *_data.json", type=["json"])
+
+# if JSON uploaded
+if json_file is not None and video_file is None:
+    tmp_json = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
+    tmp_json.write(json_file.read())
+    tmp_json.close()
+    with st.spinner("Analyzing uploaded JSON..."):
+        res = analyze_shot(tmp_json.name)
+    if "error" in res:
+        st.error(res["error"])
+    else:
+        st.success("Analysis complete")
+        st.subheader("Shot Report")
+        st.json(res["report"])
+
+        st.subheader("Coaching Advice")
+        for tip in give_advice(res["report"]):
+            st.write("- " + tip)
+
+        for fig in res["figs"]:
+            st.pyplot(fig)
+
+# if video uploaded
+if video_file is not None:
+    tmp_video = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
+    tmp_video.write(video_file.read())
+    tmp_video.close()
+    st.write("Saved uploaded video to:", tmp_video.name)
+
+    if st.button("Run tracking + analysis"):
+        with st.spinner("Running tracking..."):
+            tracked_path, json_path, analysis_data = process_video(tmp_video.name, ball_model, pose_model)
+        st.success("Tracking finished")
+        st.video(open(tracked_path, "rb").read())
+
+        with open(json_path, "rb") as f:
+            json_bytes = f.read()
+        st.download_button("Download tracking JSON", data=json_bytes,
+                           file_name=os.path.basename(json_path), mime="application/json")
+
+        with st.spinner("Running arc analysis..."):
+            res = analyze_shot(json_path)
+        if "error" in res:
+            st.error(res["error"])
+        else:
+            st.subheader("Shot Report")
+            st.json(res["report"])
+
+            st.subheader("Coaching Advice")
+            for tip in give_advice(res["report"]):
+                st.write("- " + tip)
+
+            for fig in res["figs"]:
+                st.pyplot(fig)
+
+st.markdown("---")
+st.caption("If it's broke, fix it")
+
