@@ -12,50 +12,89 @@ from datetime import datetime
 
 st.set_page_config(layout="wide", page_title="Basketball Shot Tracker")
 
-# Inject custom CSS for styling
 st.markdown(
     """
     <style>
-    /* Background */
+    /* Import Google Font */
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600&display=swap');
+
+    /* Overall background */
     .stApp {
-        background-color: #121212;
-        color: #eaeaea;
+        background: linear-gradient(135deg, #0d0d0d, #1a1a1a);
+        color: #f2f2f2;
+        font-family: 'Orbitron', sans-serif;
     }
-    /* Headers */
-    h1, h2, h3, h4 {
-        color: #ff6600;
+
+    /* Hero section */
+    .hero {
+        background: linear-gradient(90deg, #ff6600, #ff3300);
+        padding: 2rem;
+        border-radius: 12px;
         text-align: center;
-        font-family: 'Arial Black', sans-serif;
+        margin-bottom: 2rem;
+        color: white;
     }
+    .hero h1 {
+        font-size: 3rem !important;
+        margin-bottom: 0.5rem;
+    }
+    .hero p {
+        font-size: 1.2rem;
+        opacity: 0.9;
+    }
+
+    /* Card style containers */
+    .block-container {
+        padding-top: 1rem;
+    }
+    .stCard {
+        background: #1e1e1e;
+        border-radius: 15px;
+        padding: 1.5rem;
+        box-shadow: 0px 4px 20px rgba(0,0,0,0.6);
+        margin-bottom: 2rem;
+    }
+
     /* Buttons */
     div.stButton > button {
-        background-color: #ff6600;
+        background: linear-gradient(90deg, #ff6600, #ff3300);
         color: white;
-        border-radius: 12px;
         border: none;
-        padding: 0.5em 1.5em;
-        font-size: 1.1em;
+        border-radius: 10px;
+        padding: 0.6rem 1.2rem;
+        font-size: 1rem;
         font-weight: bold;
-        transition: background-color 0.3s ease;
+        transition: 0.3s;
     }
     div.stButton > button:hover {
-        background-color: #e65c00;
-        color: white;
+        transform: scale(1.05);
+        background: linear-gradient(90deg, #ff3300, #ff6600);
     }
+
     /* Sidebar */
     section[data-testid="stSidebar"] {
-        background-color: #1e1e1e;
+        background-color: #111;
+        padding: 1rem;
     }
-    /* JSON box */
-    .stMarkdown pre, .stJson {
-        background-color: #1e1e1e !important;
-        border-radius: 8px;
-        padding: 1em;
+    section[data-testid="stSidebar"] h2 {
+        color: #ff6600;
     }
     </style>
     """,
     unsafe_allow_html=True
 )
+
+# Hero Section
+st.markdown(
+    """
+    <div class="hero">
+        <h1>🏀 Basketball Shot Tracker</h1>
+        <p>Upload your shot. Get pro-level feedback. Train smarter.</p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
 
 # ----------------------------
 # Helpers: geometry / angle
