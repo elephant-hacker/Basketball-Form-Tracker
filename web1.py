@@ -410,7 +410,7 @@ def analyze_shot(json_path):
     plt.legend()
     figs.append(fig1)
 
-       report = {
+    report = {
         "release_idx": int(release_idx),
         "launch_angle": float(launch_angle),
         "arc_height_px": arc_height,
