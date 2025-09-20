@@ -410,7 +410,7 @@ def analyze_shot(json_path):
     plt.legend()
     figs.append(fig1)
 
-   report = {
+       report = {
         "release_idx": int(release_idx),
         "launch_angle": float(launch_angle),
         "arc_height_px": arc_height,
@@ -418,6 +418,5 @@ def analyze_shot(json_path):
         "right_elbow_prep_angle": avg_right_prep,
         "right_elbow_release_angle": avg_right_release,
     }
- return {"report": report, "figs": figs}
-        "release_idx": int(release_idx),
-        "
+
+    return {"report": report, "figs": figs}
