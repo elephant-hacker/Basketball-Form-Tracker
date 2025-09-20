@@ -136,7 +136,28 @@ def give_advice(report):
         else:
             advice.append("Your arc height looked solid.")
 
-    # More metrics (future: elbow angle, wrist-ball separation, etc.)
+    # Elbow advice (study-based)
+    prep_target = 85.1
+    release_target = 159.6
+
+    if "right_elbow_prep_angle" in report and report["right_elbow_prep_angle"] is not None:
+        prep = report["right_elbow_prep_angle"]
+        if abs(prep - prep_target) <= 10:
+            advice.append(f"Prep phase elbow angle was {prep:.1f}°, close to the proficient ~85°.")
+        elif prep < prep_target:
+            advice.append(f"Your prep elbow angle was {prep:.1f}° (a bit too tight). Open it closer to ~85°.")
+        else:
+            advice.append(f"Your prep elbow angle was {prep:.1f}° (too open). Aim for ~85° bend before release.")
+
+    if "right_elbow_release_angle" in report and report["right_elbow_release_angle"] is not None:
+        rel = report["right_elbow_release_angle"]
+        if abs(rel - release_target) <= 10:
+            advice.append(f"Release elbow angle was {rel:.1f}°, right near the proficient ~160°.")
+        elif rel < release_target:
+            advice.append(f"Your release elbow angle was {rel:.1f}° (too low). Extend more fully to reach ~160°.")
+        else:
+            advice.append(f"Your release elbow angle was {rel:.1f}° (overextended). Aim to finish closer to ~160°.")
+
     return advice
 
 # ----------------------------
@@ -193,7 +214,6 @@ def process_video(video_path, ball_model, pose_model, show_progress=True):
 
         # Ball detection
         ball_results = ball_model(frame)[0]
-        ball_box = None
         for box in getattr(ball_results, "boxes", []):
             cls_id = int(box.cls[0])
             label = ball_model.names[cls_id]
@@ -202,7 +222,6 @@ def process_video(video_path, ball_model, pose_model, show_progress=True):
                 w, h = (x2 - x1), (y2 - y1)
                 cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
                 trajectory.append((cx, cy))
-                ball_box = (x1, y1, x2, y2)
                 frame_rec["ball"] = {"cx": cx, "cy": cy, "w": w, "h": h}
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
                 cv2.circle(frame, (cx, cy), 6, (0, 255, 0), -1)
@@ -366,6 +385,18 @@ def analyze_shot(json_path):
         yp = a * xp**2 + b * xp + c
         arc_height = float(ys_rel.max() - ys_rel.min())
 
+    # Elbow angles summary
+    right_angles = [fr["right_elbow_angle"] for fr in frames if fr.get("right_elbow_angle") is not None]
+    avg_right_prep = None
+    avg_right_release = None
+    if right_angles:
+        prep_window = right_angles[max(0, release_idx-5):release_idx]
+        release_window = right_angles[release_idx:release_idx+3]
+        if prep_window:
+            avg_right_prep = float(np.mean(prep_window))
+        if release_window:
+            avg_right_release = float(np.mean(release_window))
+
     figs = []
     fig1 = plt.figure(figsize=(6,4))
     plt.scatter(xs, ys, label="All detections", alpha=0.5)
@@ -381,87 +412,4 @@ def analyze_shot(json_path):
 
     report = {
         "release_idx": int(release_idx),
-        "launch_angle": float(launch_angle),
-        "arc_height_px": arc_height,
-        "num_ball_points": len(xs),
-    }
-    return {"report": report, "figs": figs}
-
-# ----------------------------
-# Streamlit UI
-# ----------------------------
-st.header("Upload your Shot")
-
-col1, col2 = st.columns([2,1])
-
-with col2:
-    model_size = st.selectbox("Model size (smaller = faster)", ["yolov8n", "yolov8s", "yolov8m", "yolov8x"], index=0)
-    ball_weights = f"{model_size}.pt" if not model_size.endswith("-pose") else model_size
-    pose_weights = f"{model_size}-pose.pt"
-    st.write("Model files used:", ball_weights, "and", pose_weights)
-    st.markdown("**Tip:** if this is slow, choose `yolov8n`.")
-
-# ✅ make sure models are loaded
-with st.spinner("Loading models (cached)..."):
-    ball_model, pose_model = load_models(ball_weights, pose_weights)
-
-with col1:
-    video_file = st.file_uploader("Upload video (mp4/mov/avi)", type=["mp4","mov","avi"])
-    json_file = st.file_uploader("Or upload existing *_data.json", type=["json"])
-
-# Analyze uploaded JSON directly
-if json_file is not None and video_file is None:
-    tmp_json = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
-    tmp_json.write(json_file.read())
-    tmp_json.close()
-    with st.spinner("Analyzing uploaded JSON..."):
-        res = analyze_shot(tmp_json.name)
-    if "error" in res:
-        st.error(res["error"])
-    else:
-        st.success("Analysis complete")
-        st.subheader("Shot Report")
-        st.json(res["report"])
-
-        st.subheader("Coaching Advice")
-        for tip in give_advice(res["report"]):
-            st.write("- " + tip)
-
-        for fig in res["figs"]:
-            st.pyplot(fig)
-
-# Full pipeline if video uploaded
-if video_file is not None:
-    tmp_video = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
-    tmp_video.write(video_file.read())
-    tmp_video.close()
-    st.write("Saved uploaded video to:", tmp_video.name)
-
-    if st.button("Run tracking + analysis"):
-        with st.spinner("Running tracking..."):
-            tracked_path, json_path, analysis_data = process_video(tmp_video.name, ball_model, pose_model)
-        st.success("Tracking finished")
-        st.video(open(tracked_path, "rb").read())
-
-        with open(json_path, "rb") as f:
-            json_bytes = f.read()
-        st.download_button("Download tracking JSON", data=json_bytes,
-                           file_name=os.path.basename(json_path), mime="application/json")
-
-        with st.spinner("Running arc analysis..."):
-            res = analyze_shot(json_path)
-        if "error" in res:
-            st.error(res["error"])
-        else:
-            st.subheader("Shot Report")
-            st.json(res["report"])
-
-            st.subheader("Coaching Advice")
-            for tip in give_advice(res["report"]):
-                st.write("- " + tip)
-
-            for fig in res["figs"]:
-                st.pyplot(fig)
-
-st.markdown("---")
-st.caption("If it's broke, fix it")
+        "
